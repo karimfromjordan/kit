@@ -6,16 +6,22 @@ export const path = env('SOCKET_PATH', false);
 export const host = env('HOST', '0.0.0.0');
 export const port = env('PORT', !path && '3000');
 
-const listen_pid = parseInt(env('LISTEN_PID', false));
-const listen_fds = parseInt(env('LISTEN_FDS', false));
-const timeout = parseInt(env('TIMEOUT', false));
+const listen_pid = parseInt(env('LISTEN_PID', '-1'));
+const listen_fds = parseInt(env('LISTEN_FDS', '-1'));
+const timeout = parseInt(env('TIMEOUT', '-1'));
+const listen_fd = 3;
 
 const server = polka().use(handler);
 
-if (process.pid === listen_pid && listen_fds === 1) {
-	// systemd socket activation
-	server.listen({ fd: 3 }, () => {
-		console.log(`Listening on file descriptor 3`);
+function close() {
+	// @ts-expect-error this was added in 18.2.0 but is not reflected in the types
+	server.server.closeIdleConnections();
+	server.server.close();
+}
+
+if (listen_pid === process.pid && listen_fds === 1) {
+	server.listen({ fd: listen_fd }, () => {
+		console.log(`Listening on file descriptor ${listen_fd}`);
 	});
 
 	if (timeout) {
@@ -38,7 +44,7 @@ if (process.pid === listen_pid && listen_fds === 1) {
 			requests--;
 
 			if (requests === 0) {
-				timeout_id = setTimeout(() => server.server.close(), timeout * 1000);
+				timeout_id = setTimeout(close, timeout * 1000);
 			}
 		}
 
@@ -49,5 +55,8 @@ if (process.pid === listen_pid && listen_fds === 1) {
 		console.log(`Listening on ${path ? path : host + ':' + port}`);
 	});
 }
+
+process.on('SIGTERM', close);
+process.on('SIGINT', close);
 
 export { server };
