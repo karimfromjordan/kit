@@ -11,9 +11,10 @@ const expected = new Set([
 	'HOST_HEADER',
 	'PORT_HEADER',
 	'BODY_SIZE_LIMIT',
+	'SHUTDOWN_TIMEOUT',
+	'IDLE_TIMEOUT',
 	'LISTEN_PID',
-	'LISTEN_FDS',
-	'TIMEOUT'
+	'LISTEN_FDS'
 ]);
 
 if (ENV_PREFIX) {

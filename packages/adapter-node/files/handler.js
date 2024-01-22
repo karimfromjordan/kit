@@ -1,13 +1,14 @@
 import 'SHIMS';
-import fs$1 from 'node:fs';
+import fs$1, { createReadStream } from 'node:fs';
 import path from 'node:path';
 import * as fs from 'fs';
 import { readdirSync, statSync } from 'fs';
 import { resolve, join, normalize } from 'path';
 import * as qs from 'querystring';
 import { fileURLToPath } from 'node:url';
+import { Readable } from 'node:stream';
 import { Server } from 'SERVER';
-import { manifest, prerendered } from 'MANIFEST';
+import { manifest, prerendered, base } from 'MANIFEST';
 import { env } from 'ENV';
 
 function totalist(dir, callback, pre='') {
@@ -1128,10 +1129,20 @@ async function setResponse(res, response) {
 	}
 }
 
+/**
+ * Converts a file on disk to a readable stream
+ * @param {string} file
+ * @returns {ReadableStream}
+ * @since 2.4.0
+ */
+function createReadableStream(file) {
+	return /** @type {ReadableStream} */ (Readable.toWeb(createReadStream(file)));
+}
+
 /* global ENV_PREFIX */
 
 const server = new Server(manifest);
-await server.init({ env: process.env });
+
 const origin = env('ORIGIN', undefined);
 const xff_depth = parseInt(env('XFF_DEPTH', '1'));
 const address_header = env('ADDRESS_HEADER', '').toLowerCase();
@@ -1147,6 +1158,13 @@ if (isNaN(body_size_limit)) {
 }
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
+
+const asset_dir = `${dir}/client${base}`;
+
+await server.init({
+	env: process.env,
+	read: (file) => createReadableStream(`${asset_dir}/${file}`)
+});
 
 /**
  * @param {string} path
